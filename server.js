@@ -95,6 +95,7 @@ io.on('connection', (socket) => {
   });
 });
 
-http.listen(3000, () => {
-  console.log('Sunucu çalışıyor! Tarayıcıda http://localhost:3000 adresine girin.');
+const port = process.env.PORT || 3000;
+http.listen(port, () => {
+  console.log(`Sunucu ${port} portunda çalışıyor...`);
 });
