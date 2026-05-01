@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kendi Oyunum - Tahmin Et</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: sans-serif; background-color: #e0e7ff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    
+    /* GİRİŞ EKRANI TASARIMI */
+    #giris-ekrani { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+    .giris-bolumu { margin-bottom: 20px; text-align: left; }
+    .giris-bolumu p { font-size: 14px; color: #334155; margin-bottom: 10px; font-weight: bold;}
+    #giris-ekrani input { padding: 12px; font-size: 16px; width: 100%; box-sizing: border-box; border: 2px solid #cbd5e1; border-radius: 5px; margin-bottom: 15px; outline: none;}
+    #giris-ekrani input:focus { border-color: #6366f1; }
+    #giris-ekrani button { padding: 12px 20px; font-size: 16px; background: #6366f1; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold;}
+    #giris-ekrani button:hover { background: #4f46e5; }
+    .ayirici { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+    #google-basarili-mesaj { display: none; color: #10b981; font-weight: bold; font-size: 14px; text-align: center; background: #ecfdf5; padding: 10px; border-radius: 5px; border: 1px solid #10b981;}
+
+    /* OYUN EKRANI TASARIMI */
+    #ana-oyun-ekrani { display: none; width: 90%; max-width: 1000px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative; }
+    .ust-menu { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;}
+    .oyun-icerigi { display: flex; gap: 20px; }
+    
+    canvas { border: 2px solid #333; cursor: crosshair; background: #fff; border-radius: 5px; }
+    
+    #tahmin-kismi { width: 300px; display: flex; flex-direction: column; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 5px; }
+    #tahmin-listesi { flex-grow: 1; overflow-y: auto; padding: 10px; margin: 0; list-style: none; height: 350px; }
+    
+    .mesaj-satiri { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; background: #fff; padding: 5px; border-radius: 5px; border: 1px solid #eee;}
+    .profil-fotosu { width: 28px; height: 28px; border-radius: 50%; background: #e2e8f0; object-fit: cover; }
+    
+    .sistem-mesaji { color: #16a34a; font-weight: bold; text-align: center; display: block; margin: 10px 0;}
+    .kontrol-grubu { display: flex; padding: 10px; background: #e2e8f0; border-radius: 0 0 5px 5px; }
+    .kontrol-grubu input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px 0 0 5px; }
+    .kontrol-grubu button { padding: 8px; background: #ef4444; color: white; border: none; border-radius: 0 5px 5px 0; cursor: pointer; font-weight: bold;}
+
+    #chat-buton { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    #chat-penceresi { display: none; position: absolute; right: 20px; top: 70px; width: 300px; background: #fff; border: 2px solid #10b981; border-radius: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); flex-direction: column; z-index: 10;}
+    #chat-listesi { height: 250px; overflow-y: auto; padding: 10px; margin: 0; list-style: none; background: #ecfdf5;}
+    
+    #chat-uyari-alani { padding: 15px; text-align: center; background: #fee2e2; color: #991b1b; font-size: 13px; border-radius: 0 0 5px 5px; display: none;}
+  </style>
+</head>
+<body>
+
+  <!-- GİRİŞ EKRANI -->
+  <div id="giris-ekrani">
+    <h2 style="margin-top:0; color: #1e293b;">Oyuna Katıl</h2>
+    
+    <!-- Adım 1: Google Girişi (İsteğe Bağlı) -->
+    <div class="giris-bolumu">
+      <p>1. Sohbet erişimi ve profil fotoğrafı (İsteğe bağlı):</p>
+      <div id="googleButtonDiv" style="display: flex; justify-content: center;"></div>
+      <div id="google-basarili-mesaj">✅ Google bağlandı! Sohbet açık.</div>
+    </div>
+
+    <hr class="ayirici">
+
+    <!-- Adım 2: Nickname Girişi ve Başlama -->
+    <div class="giris-bolumu">
+      <p>2. Oyunda kullanacağın takma ad:</p>
+      <input type="text" id="nicknameKutusu" placeholder="Örn: CizimUstasi99" autocomplete="off">
+      <button onclick="oyunaGir()">Oyuna Başla</button>
+    </div>
+    
+    <p style="font-size: 11px; color: #94a3b8; margin:0;">* Google bağlamazsan sohbete yazamazsın ve sana rastgele bir robot fotoğrafı atanır.</p>
+  </div>
+
+  <!-- ANA OYUN EKRANI -->
+  <div id="ana-oyun-ekrani">
+    <div class="ust-menu">
+      <h3 id="durum-metni" style="margin:0; color:#ef4444;">Bekleniyor... (En az 2 kişi gerekli)</h3>
+      <button id="chat-buton" onclick="chatAcKapat()">💬 Sohbeti Aç/Kapat</button>
+    </div>
+
+    <!-- CHAT PENCERESİ -->
+    <div id="chat-penceresi">
+      <ul id="chat-listesi"></ul>
+      
+      <!-- Sadece Google ile girenlerin göreceği yazı kutusu -->
+      <div id="chat-girdi-alani" class="kontrol-grubu">
+        <input type="text" id="chatKutusu" placeholder="Mesajınız..." autocomplete="off">
+        <button style="background: #10b981;" onclick="chatGonder()">Yaz</button>
+      </div>
+
+      <!-- Misafirlerin göreceği uyarı alanı -->
+      <div id="chat-uyari-alani">
+        💬 Sohbet etmek için başlangıçta Google ile giriş yapmalısınız.
+      </div>
+    </div>
+
+    <div class="oyun-icerigi">
+      <canvas id="tahta" width="600" height="450"></canvas>
+      <div id="tahmin-kismi">
+        <ul id="tahmin-listesi"></ul>
+        <div class="kontrol-grubu">
+          <input type="text" id="tahminKutusu" placeholder="Tahminini yaz..." autocomplete="off">
+          <button onclick="tahminGonder()">Tahmin Et</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let benCizenMiyim = false; 
+
+    // --- YENİ GİRİŞ MANTIĞI ---
+    let kayitliAvatar = null;
+    let chatYetkisiVar = false;
+
+    // Google Girişi başarılı olursa bu çalışır, arka planda bilgileri saklar
+    function googleGirisBasarili(response) {
+      const veri = JSON.parse(atob(response.credential.split('.')[1]));
+      
+      kayitliAvatar = veri.picture; 
+      chatYetkisiVar = true;
+      
+      // Google butonunu gizle, yerine başarılı mesajı göster
+      document.getElementById('googleButtonDiv').style.display = 'none';
+      document.getElementById('google-basarili-mesaj').style.display = 'block';
+
+      // Eğer kullanıcı henüz takma ad yazmadıysa, Google ismini oraya kopyala (İsterse değiştirir)
+      const nickKutusu = document.getElementById('nicknameKutusu');
+      if (nickKutusu.value.trim() === '') {
+          nickKutusu.value = veri.name;
+      }
+    }
+
+    // Google Butonunu Yükle
+    window.onload = function () {
+      google.accounts.id.initialize({
+        client_id: "755808319870-ks1gfm5kauk48gffkuqrkdrje2a0idjk.apps.googleusercontent.com",
+        callback: googleGirisBasarili
+      });
+      google.accounts.id.renderButton(
+        document.getElementById("googleButtonDiv"),
+        { theme: "outline", size: "large", width: "280" }
+      );
+    }
+
+    // "Oyuna Başla" Butonuna Basıldığında Çalışır
+    function oyunaGir() {
+      const nick = document.getElementById('nicknameKutusu').value;
+      
+      // Takma ad yazılması zorunlu
+      if (nick.trim() === '') {
+        alert("Lütfen oyuna başlamadan önce bir takma ad yazın!");
+        return;
+      }
+
+      let kullanilacakAvatar = kayitliAvatar;
+      
+      // Eğer Google ile girmedilerse (kayitliAvatar boşsa) rastgele robot ver
+      if (!kullanilacakAvatar) {
+        const rastgeleSayi = Math.floor(Math.random() * 10000);
+        kullanilacakAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${rastgeleSayi}`;
+      }
+
+      // Sunucuya verileri gönder
+      socket.emit('oyuna_katil', { 
+        nickname: nick, 
+        avatar: kullanilacakAvatar, 
+        canChat: chatYetkisiVar 
+      });
+      
+      ekranlariAyarla(chatYetkisiVar);
+    }
+
+    // Enter tuşu ile oyuna başlama
+    document.getElementById('nicknameKutusu').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') oyunaGir();
+    });
+
+    function ekranlariAyarla(chatYetkisi) {
+      document.getElementById('giris-ekrani').style.display = 'none';
+      document.getElementById('ana-oyun-ekrani').style.display = 'block';
+      
+      if (chatYetkisi) {
+        document.getElementById('chat-girdi-alani').style.display = 'flex';
+        document.getElementById('chat-uyari-alani').style.display = 'none';
+      } else {
+        document.getElementById('chat-girdi-alani').style.display = 'none';
+        document.getElementById('chat-uyari-alani').style.display = 'block';
+      }
+    }
+
+
+    // --- OYUN MANTIĞI VE UYARILAR ---
+    const durumMetni = document.getElementById('durum-metni');
+
+    socket.on('sen_cizeceksin', (kelime) => {
+      benCizenMiyim = true;
+      durumMetni.innerHTML = `Sıra Sende! Çizmen gereken kelime: <b style="color:black;">${kelime}</b>`;
+      durumMetni.style.color = "#16a34a";
+    });
+
+    socket.on('baskasi_cizecek', (cizenKisi) => {
+      benCizenMiyim = false;
+      durumMetni.innerHTML = `Şu an <b style="color:black;">${cizenKisi}</b> çiziyor...`;
+      durumMetni.style.color = "#4f46e5";
+    });
+
+    socket.on('tahtayi_temizle', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // --- TAHMİN VE CHAT FONKSİYONLARI ---
+    const tahminListesi = document.getElementById('tahmin-listesi');
+    const tahminKutusu = document.getElementById('tahminKutusu');
+    const chatPenceresi = document.getElementById('chat-penceresi');
+    const chatListesi = document.getElementById('chat-listesi');
+    const chatKutusu = document.getElementById('chatKutusu');
+
+    function tahminGonder() {
+      if (tahminKutusu.value && !benCizenMiyim) {
+        socket.emit('tahmin_et', tahminKutusu.value);
+        tahminKutusu.value = '';
+      }
+    }
+
+    function chatAcKapat() {
+      chatPenceresi.style.display = (chatPenceresi.style.display === 'none' || chatPenceresi.style.display === '') ? 'flex' : 'none';
+    }
+
+    function chatGonder() {
+      if (chatKutusu.value) {
+        socket.emit('chat_mesaji', chatKutusu.value);
+        chatKutusu.value = '';
+      }
+    }
+
+    tahminKutusu.addEventListener('keypress', (e) => { if(e.key === 'Enter') tahminGonder(); });
+    chatKutusu.addEventListener('keypress', (e) => { if(e.key === 'Enter') chatGonder(); });
+
+    function fotoluMesajYaz(liste, veri, isChat) {
+      const li = document.createElement('li');
+      li.className = "mesaj-satiri";
+      const renk = isChat ? "#10b981" : "#333";
+      
+      li.innerHTML = `
+        <img src="${veri.avatar}" class="profil-fotosu">
+        <div>
+          <b style="color:${renk};">${veri.isim}:</b> <span>${veri.mesaj}</span>
+        </div>
+      `;
+      liste.appendChild(li);
+      liste.scrollTop = liste.scrollHeight;
+    }
+
+    socket.on('tahmin_yayinla', (veri) => fotoluMesajYaz(tahminListesi, veri, false));
+    socket.on('chat_yayinla', (veri) => fotoluMesajYaz(chatListesi, veri, true));
+    
+    socket.on('sistem_mesaji', (mesaj) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="sistem-mesaji">${mesaj}</span>`;
+      tahminListesi.appendChild(li);
+      tahminListesi.scrollTop = tahminListesi.scrollHeight;
+    });
+
+    // --- ÇİZİM İŞLEMLERİ ---
+    const canvas = document.getElementById('tahta');
+    const ctx = canvas.getContext('2d');
+    let cizimYapiyorMu = false;
+
+    canvas.addEventListener('mousedown', (e) => {
+      if(!benCizenMiyim) return; 
+      cizimYapiyorMu = true;
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (cizimYapiyorMu && benCizenMiyim) {
+        const x = e.offsetX;
+        const y = e.offsetY;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        socket.emit('cizim', { x: x, y: y, tip: 'ciz' });
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if(!benCizenMiyim) return;
+      cizimYapiyorMu = false;
+      socket.emit('cizim', { tip: 'bitir' });
+    });
+
+    socket.on('cizim', (veri) => {
+      if (veri.tip === 'bitir') {
+        ctx.beginPath();
+      } else {
+        ctx.lineTo(veri.x, veri.y);
+        ctx.stroke();
+      }
+    });
+  </script>
+</body>
+</html>
